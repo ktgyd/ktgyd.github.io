@@ -101,7 +101,7 @@ body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--f
 /* screens */
 .screen { position: fixed; inset: 0; display: flex; box-sizing: border-box; }
 #menu { align-items: center; background: linear-gradient(90deg, rgba(5,7,10,.9) 0%, rgba(5,7,10,.62) 40%, rgba(5,7,10,0) 75%); }
-#pause, #over { align-items: center; justify-content: center; background: rgba(5,7,10,.7); }
+#pause, #over, #rank { align-items: center; justify-content: center; background: rgba(5,7,10,.7); }
 .panel { width: min(100%, 460px); display: flex; flex-direction: column; gap: 18px; }
 .kicker { margin: 0; font-family: var(--f-mono); font-weight: 600; font-size: 12px; letter-spacing: .3em; color: var(--amber); text-transform: uppercase; }
 h1 { margin: 0; font-family: var(--f-display); font-weight: 800; text-transform: uppercase; font-size: clamp(68px, 15vw, 140px); line-height: .82; letter-spacing: .005em; text-wrap: balance; }
@@ -133,6 +133,16 @@ h1 { margin: 0; font-family: var(--f-display); font-weight: 800; text-transform:
 #pbtn i { display: block; width: 4px; height: 14px; background: var(--ink); border-radius: 1px; }
 #pbtn.on i { width: 0; height: 0; background: none; border-radius: 0; border-left: 12px solid var(--amber); border-top: 8px solid transparent; border-bottom: 8px solid transparent; margin-left: 3px; }
 #pbtn.on i + i { display: none; }
+.initform { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.initform input { width: 6.5em; font-family: var(--f-mono); font-weight: 600; font-size: 20px; letter-spacing: .2em; text-align: center; text-transform: uppercase; color: var(--ink); background: rgba(255,255,255,.07); border: 1px solid var(--line); padding: 9px 10px; outline: none; border-radius: 0; }
+.initform input:focus { border-color: var(--amber); }
+.rlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; max-height: 46vh; overflow-y: auto; touch-action: pan-y; }
+.rlist li { display: grid; grid-template-columns: 1.8em 3.4em minmax(0,1fr) auto; gap: 10px; align-items: baseline; padding: 5px 10px; font-size: 15px; }
+.rlist li.me { background: rgba(255,170,0,.14); }
+.rlist li span:first-child { color: var(--muted); font-family: var(--f-mono); }
+.rlist li .nm { font-family: var(--f-mono); font-weight: 600; letter-spacing: .12em; }
+.rlist li small { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rlist li b { font-family: var(--f-mono); font-weight: 600; font-variant-numeric: tabular-nums; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 * { touch-action: none; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
 html, body { overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
@@ -167,7 +177,7 @@ html, body { overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
     <h1>Hollow<br>Yard</h1>
     <p class="lede">The gates open every few minutes and the dead walk in. Hold the yard, stay lit, and count your magazines.</p>
     <div class="maps" id="maps" role="radiogroup" aria-label="Map"></div>
-    <button class="btn" id="go">Deploy</button>
+    <div class="row"><button class="btn" id="go">Deploy</button><button class="btn ghost" id="rankBtn">Ranking</button></div>
     <ul class="keys">
       <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>Move</li>
       <li><kbd>Mouse</kbd>Aim &middot; fire &middot; slash</li>
@@ -185,6 +195,10 @@ html, body { overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
   <div class="panel card"><p class="kicker">Paused</p><h1 style="font-size:clamp(48px,10vw,84px)">Hold up</h1><div class="row"><button class="btn" id="resume">Resume</button><button class="btn ghost" id="quit">Quit</button></div></div>
 </section>
 
+<section id="rank" class="screen inset" hidden>
+  <div class="panel card"><p class="kicker">Leaderboard</p><h1 style="font-size:clamp(44px,9vw,76px)">Top 10</h1><p class="lede" id="rMsg"></p><ol class="rlist" id="rList"></ol><button class="btn ghost" id="rClose">Close</button></div>
+</section>
+
 <section id="over" class="screen inset" hidden>
   <div class="panel card">
     <p class="kicker">You fell</p>
@@ -197,7 +211,9 @@ html, body { overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
       <div><dt>Accuracy</dt><dd id="oAcc">0%</dd></div>
       <div><dt>Best score</dt><dd id="oBest">0</dd></div>
     </dl>
-    <div class="row"><button class="btn" id="again">Deploy again</button><button class="btn ghost" id="toMenu">Maps</button></div>
+    <form id="oForm" class="initform" hidden><input id="oIni" maxlength="3" placeholder="AAA" autocomplete="off" autocapitalize="characters" enterkeyhint="done" aria-label="Initials"><button class="btn ghost" type="submit">Save score</button></form>
+    <p id="oMsg" class="lede" hidden></p>
+    <div class="row"><button class="btn" id="again">Deploy again</button><button class="btn ghost" id="toMenu">Maps</button><button class="btn ghost" id="rankBtn2">Ranking</button></div>
   </div>
 </section>
 
@@ -218,6 +234,28 @@ html, body { overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
 })();
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script type="module">
+  // Global leaderboard (Firebase Firestore). If it cannot load, scores are kept on this device only.
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
+  import { getFirestore, collection, doc, getDoc, setDoc, getDocs, query, orderBy, limit, serverTimestamp }
+    from "https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js";
+  const db = getFirestore(initializeApp({
+    apiKey: "AIzaSyAjWpPVIqOfNzzFejozYn3gOwjUaotr_kE", authDomain: "malangtetris-score.firebaseapp.com", projectId: "malangtetris-score",
+    storageBucket: "malangtetris-score.firebasestorage.app", messagingSenderId: "794462588025", appId: "1:794462588025:web:9b03423fb935be099698a8"
+  }));
+  window.fbBoard = {
+    async top() {
+      const snap = await getDocs(query(collection(db, "hollowyard_scores"), orderBy("s", "desc"), limit(10)));
+      return snap.docs.map(d => { const x = d.data(); return { id: d.id, n: String(x.n), s: Number(x.s), w: Number(x.w) || 0, m: String(x.m || "") }; });
+    },
+    async put(id, n, s, w, m) {
+      const ref = doc(db, "hollowyard_scores", id);
+      if ((await getDoc(ref)).exists()) return "exists";
+      await setDoc(ref, { n, s, w, m, t: serverTimestamp() });
+      return "ok";
+    }
+  };
+</script>
 <script>
 (function () {
 'use strict';
@@ -1391,7 +1429,7 @@ function startGame() {
   Object.assign(S, { score: 0, kills: 0, heads: 0, shots: 0, hits: 0 });
   cur = 0; fireT = 0.4; reloadT = 0; swapT = 0.4; bloom = 0; kick = 0; dmgFlash = 0; W.n = 0; W.state = 'idle';
   state = 'playing'; paused = false;
-  $('menu').hidden = true; $('over').hidden = true; $('pause').hidden = true; $('hud').hidden = false; $('xh').hidden = false;
+  closeRank(); $('oForm').hidden = true; $('menu').hidden = true; $('over').hidden = true; $('pause').hidden = true; $('hud').hidden = false; $('xh').hidden = false;
   if (!noLock) requestLock(); showHint();
   startWave(1);
 }
@@ -1401,7 +1439,7 @@ function gameOver() {
   $('oHead').textContent = (S.kills ? Math.round(S.heads / S.kills * 100) : 0) + '%'; $('oAcc').textContent = (S.shots ? Math.round(S.hits / S.shots * 100) : 0) + '%'; $('oBest').textContent = best;
   $('over').hidden = false; $('hud').hidden = true; $('xh').hidden = true; $('hint').hidden = true;
   if (document.pointerLockElement) document.exitPointerLock();
-  state = 'over';
+  state = 'over'; offerScore();
 }
 $('go').addEventListener('click', startGame);
 const mapBox = $('maps');
@@ -1423,6 +1461,58 @@ function toMenu() {
   menuScene(); markMap();
 }
 $('toMenu').addEventListener('click', toMenu);
+/* ---- scores ---- */
+let scores = [], globalScores = null, lastEntry = null, rankOpen = false, saving = false, curScore = 0, curWave = 0, curMapEnd = 'yard';
+try { scores = JSON.parse(localStorage.getItem('hollowyard.scores')) || []; } catch (e) { scores = []; }
+if (!Array.isArray(scores)) scores = [];
+const saveScores = () => { try { localStorage.setItem('hollowyard.scores', JSON.stringify(scores)); } catch (e) { /* ignore */ } };
+const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms || 6000))]);
+const newId = () => (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
+async function refreshGlobal() {
+  if (!window.fbBoard) { globalScores = null; return false; }
+  try { globalScores = await withTimeout(window.fbBoard.top()); return true; } catch (e) { globalScores = null; return false; }
+}
+async function syncLocal() {
+  if (!window.fbBoard) return; let n = 0;
+  for (const e of scores.slice()) { if (!e.u || e.up) continue; try { await withTimeout(window.fbBoard.put(e.u, e.n, e.s, e.w, e.m)); e.up = true; n++; } catch (err) { break; } }
+  if (n) saveScores();
+}
+function renderRank(ok) {
+  const list = ok && globalScores ? globalScores : scores.slice(0, 10), ul = $('rList'); ul.innerHTML = '';
+  $('rMsg').textContent = ok ? (list.length ? '' : 'No scores yet. Be the first.') : (list.length ? 'Server unreachable. Showing scores saved on this device.' : 'Server unreachable, and nothing saved on this device yet.');
+  list.forEach((e, i) => {
+    const li = document.createElement('li'); if (lastEntry && (e.id === lastEntry.u || e === lastEntry)) li.className = 'me';
+    const a = document.createElement('span'); a.textContent = String(i + 1);
+    const b = document.createElement('span'); b.className = 'nm'; b.textContent = e.n;
+    const c = document.createElement('small'); c.textContent = (MAPS[e.m] ? MAPS[e.m].name : '') + (e.w ? ' · wave ' + e.w : '');
+    const d = document.createElement('b'); d.textContent = Number(e.s).toLocaleString();
+    li.append(a, b, c, d); ul.appendChild(li);
+  });
+}
+async function openRank() {
+  rankOpen = true; $('rank').hidden = false; $('rMsg').textContent = 'Loading…'; $('rList').innerHTML = '';
+  const ok = await refreshGlobal(); if (rankOpen) renderRank(ok);
+}
+function closeRank() { rankOpen = false; $('rank').hidden = true; }
+$('rankBtn').addEventListener('click', openRank); $('rankBtn2').addEventListener('click', openRank); $('rClose').addEventListener('click', closeRank);
+addEventListener('keydown', (e) => { if (e.key === 'Escape' && rankOpen) closeRank(); });
+function offerScore() {
+  curScore = S.score; curWave = W.n; curMapEnd = curMap; lastEntry = null; saving = false;
+  $('oMsg').hidden = true; $('oForm').hidden = curScore <= 0;
+  if (curScore > 0) { try { $('oIni').value = localStorage.getItem('hollowyard.ini') || ''; } catch (e) { /* ignore */ } if (!touchMode) setTimeout(() => $('oIni').focus({ preventScroll: true }), 50); }
+}
+$('oForm').addEventListener('submit', async (e) => {
+  e.preventDefault(); if (saving) return; saving = true;
+  const n = ($('oIni').value.trim().toUpperCase().replace(/[^A-Z0-9가-힣]/g, '') || '---').slice(0, 3);
+  try { localStorage.setItem('hollowyard.ini', n === '---' ? '' : n); } catch (err) { /* ignore */ }
+  const entry = { n: n, s: curScore, w: curWave, m: curMapEnd, u: newId() };
+  scores.push(entry); scores.sort((a, b) => b.s - a.s); scores = scores.slice(0, 20); saveScores();
+  lastEntry = entry; $('oForm').hidden = true; $('oMsg').hidden = false; $('oMsg').textContent = 'Saving…';
+  let ok = false;
+  if (window.fbBoard) { try { await withTimeout(window.fbBoard.put(entry.u, n, entry.s, entry.w, entry.m)); entry.up = true; saveScores(); ok = true; } catch (err) { /* offline */ } }
+  $('oMsg').textContent = ok ? 'Saved to the leaderboard.' : 'Saved on this device. It will upload once the server is reachable.';
+});
+addEventListener('load', () => setTimeout(syncLocal, 1500)); addEventListener('online', syncLocal);
 $('quit').addEventListener('click', toMenu);
 // pause toggle
 function setPause(on) {
