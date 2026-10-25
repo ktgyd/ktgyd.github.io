@@ -119,6 +119,8 @@ h1 { margin: 0; font-family: var(--f-display); font-weight: 800; text-transform:
 #err { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; text-align: center; background: var(--bg); line-height: 1.5; }
 @media (max-width: 600px) { .keys { display: none; } #menu { align-items: flex-end; background: linear-gradient(0deg, rgba(5,7,10,.92), rgba(5,7,10,.45) 60%, rgba(5,7,10,0)); } }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+* { touch-action: none; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+html, body { overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
 </style>
 
 <canvas id="c" aria-label="First-person survival game view"></canvas>
@@ -184,6 +186,20 @@ h1 { margin: 0; font-family: var(--f-display); font-weight: 800; text-transform:
 
 <div id="err" hidden>이 브라우저에서는 WebGL을 시작할 수 없습니다. 최신 Chrome, Edge, Safari 또는 Firefox에서 열어 주세요.</div>
 
+<script>
+/* Keep Safari from zooming: pinch, double-tap, trackpad pinch and ctrl+wheel. */
+(function () {
+  var m = document.querySelector('meta[name=viewport]');
+  if (m) m.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover');
+  var stop = function (e) { e.preventDefault(); };
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach(function (t) { document.addEventListener(t, stop, { passive: false }); });
+  document.addEventListener('touchmove', stop, { passive: false });
+  document.addEventListener('contextmenu', stop);
+  document.addEventListener('wheel', function (e) { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
+  var lastEnd = 0;
+  document.addEventListener('touchend', function (e) { var n = Date.now(); if (n - lastEnd < 350) e.preventDefault(); lastEnd = n; }, { passive: false });
+})();
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 (function () {
